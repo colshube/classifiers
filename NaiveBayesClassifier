@@ -1,0 +1,82 @@
+import numpy as np
+from collections import defaultdict
+import typing as t
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import KBinsDiscretizer
+from sklearn.metrics import classification_report
+
+# HELPER FUNCTIONS 
+
+def fit_gaussian(xs: np.ndarray, ys: np.ndarray) -> t.Callable[[float, int], float]:
+    """
+    Returns a function p(x|y) assuming Gaussian distribution for each class.
+    """
+    classes = np.unique(ys)
+    params = {}
+
+    for c in classes:
+        x_c = xs[ys == c]
+        mean = np.mean(x_c)
+        std = np.std(x_c) + 1e-6  # avoid zero std
+        params[c] = (mean, std)
+
+    def p_x_given_y(x: float, y: int) -> float:
+        mean, std = params[y]
+        exponent = -((x - mean) ** 2) / (2 * std ** 2)
+        return (1.0 / (np.sqrt(2 * np.pi) * std)) * np.exp(exponent)
+
+    return p_x_given_y
+
+
+def fit_categorical(xs: np.ndarray, ys: np.ndarray) -> t.Callable[[int, int], float]:
+    """
+    Returns a function p(x|y) using frequency counting for categorical data.
+    """
+    classes = np.unique(ys)
+    value_counts = {c: defaultdict(int) for c in classes}
+    total_counts = defaultdict(int)
+
+    for x, y in zip(xs, ys):
+        value_counts[y][x] += 1
+        total_counts[y] += 1
+
+    def p_x_given_y(x: int, y: int) -> float:
+        return value_counts[y][x] / total_counts[y]
+
+    return p_x_given_y
+
+
+# Your NaiveBayesClassifier
+
+class NaiveBayesClassifier:
+if __name__ == "__main__":
+    # Create synthetic dataset: 1000 samples, 6 features
+    X, y = make_classification(n_samples=1000, n_features=6, n_informative=4,
+                               n_redundant=0, n_classes=3, random_state=42)
+
+    # Convert some continuous features to categorical by binning
+    est = KBinsDiscretizer(n_bins=4, encode='ordinal', strategy='uniform')
+    X_cat = est.fit_transform(X[:, :2])  # first 2 features as categorical
+    X[:, :2] = X_cat
+
+    # Define types
+    observation_types = {
+        0: 'categorical',
+        1: 'categorical',
+        2: 'continuous',
+        3: 'continuous',
+        4: 'continuous',
+        5: 'continuous',
+    }
+
+    # Train/test split
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    # Fit and evaluate
+    clf = NaiveBayesClassifier(num_targets=3, observation_types=observation_types)
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+
+    print("\nClassification Report:")
+    print(classification_report(y_test, y_pred))
